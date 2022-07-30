@@ -1,123 +1,94 @@
-// Belly Button Biodiversity - Plotly.js
-//samples.json> got data for names, metadata, samples
-// BONUS: Build the Gauge Chart
-  
-function buildMetadata(sample) {
-  d3.json("samples.json").then((data) => {
-    var metadata= data.metadata;
-    var resultsarray= metadata.filter(sampleobject => 
-      sampleobject.id == sample);
-    var result= resultsarray[0]
-    var panel = d3.select("#sample-metadata");
-    panel.html("");
-    Object.entries(result).forEach(([key, value]) => {
-      panel.append("h6").text(`${key}: ${value}`);
-    });
-
-  //buildGauge(result.wfreq)
-
-
-
-  });
-}
-
-//function buildGauge(wfreq) {}
-
-function buildCharts(sample) {
-
-// Use `d3.json` to fetch the sample data for the plots
-d3.json("samples.json").then((data) => {
-  var samples= data.samples;
-  var resultsarray= samples.filter(sampleobject => 
-      sampleobject.id == sample);
-  var result= resultsarray[0]
-
-  var ids = result.otu_ids;
-  var labels = result.otu_labels;
-  var values = result.sample_values;
-
-//------------------------------------------------------//
-//------------------------------------------------------//
-          // Build a BUBBLE Chart 
-//------------------------------------------------------//
-//------------------------------------------------------//
-
-  var LayoutBubble = {
-    margin: { t: 0 },
-    xaxis: { title: "OTU ID" },
-    hovermode: "closest",
-    };
-
-    var DataBubble = [ 
-    {
-      x: ids,
-      y: values,
-      text: labels,
-      mode: "markers",
-      marker: {
-        color: ids,
-        size: values,
-        }
-    }
-  ];
-
-  Plotly.newPlot("bubble", DataBubble, LayoutBubble);
-
-
-//---------------------------------------------------------//
-//---------------------------------------------------------//
-              //  Build a BAR Chart
-//---------------------------------------------------------//  
-//---------------------------------------------------------// 
-  var bar_data =[
-    {
-      y:ids.slice(0, 10).map(otuID => `OTU ${otuID}`).reverse(),
-      x:values.slice(0,10).reverse(),
-      text:labels.slice(0,10).reverse(),
-      type:"bar",
-      orientation:"h"
-
-    }
-  ];
-
-  var barLayout = {
-    title: "Top 10 Bacteria Cultures Found",
-    margin: { t: 30, l: 150 }
-  };
-
-  Plotly.newPlot("bar", bar_data, barLayout);
-});
-}
- 
+var source = 'data/samples.json'
 
 function init() {
-// Grab a reference to the dropdown select element
-var selector = d3.select("#selDataset");
+    var dropdown = d3.select("#selDataset")
+    d3.json(source).then(function (data) {
+        // console.log(data);
+        var id = data.names;
+        id.forEach(name => dropdown
+            .append("option")
+            .text(name)
+            .property('value', name))
 
-// Use the list of sample names to populate the select options
-d3.json("samples.json").then((data) => {
-  var sampleNames = data.names;
-  sampleNames.forEach((sample) => {
-    selector
-      .append("option")
-      .text(sample)
-      .property("value", sample);
-  });
+        console.log(id[0]);
+        demographics(id[0]);
+        buildPlots(id[0]);
+    });
+};
 
-  // Use the first sample from the list to build the initial plots
-  const firstSample = sampleNames[0];
-  buildCharts(firstSample);
-  buildMetadata(firstSample);
-});
+init();
+
+function demographics(unique_id) {
+    var panel_sample = d3.select("#sample-metadata")
+    panel_sample.html("")
+    d3.json(source).then(function (data) {
+        // console.log(data);
+        var info = data.metadata;
+        info = info.filter(row => row.id == unique_id)[0];
+        Object.entries(info).forEach(function ([key, value]) {
+            panel_sample.append("p").text(`${key}: ${value}`)
+            // console.log(`${key}: ${value}`)
+        });
+    });
+};
+
+function buildPlots(unique_id) {
+    d3.json(source).then(function (data) {
+        // console.log(data);
+        var samples = data.samples;
+        var resultArray = samples.filter(sampleObj => sampleObj.id == unique_id);
+        var result = resultArray[0];
+
+        var otu_ids = result.otu_ids;
+        var otu_labels = result.otu_labels;
+        var sample_values = result.sample_values;
+
+        var yticks = otu_ids.slice(0, 10).map(otuID => `OTU ${otuID}`).reverse();
+
+        // Build the bar chart//
+        var bar_trace = {
+            type: 'bar',
+            orientation: 'h',
+            x: sample_values.slice(0, 10).reverse(),
+            y: yticks,
+            text: otu_labels.slice(0, 10).reverse(),
+        };
+
+        var bar_data = [bar_trace];
+
+        var bar_layout = {
+            title: "Top 10 OTU's per individual",
+        };
+
+        Plotly.newPlot("bar", bar_data, bar_layout);
+
+        // Build the bubble chart //
+        var bubble_trace = {
+            x: otu_ids,
+            y: sample_values,
+            text: otu_labels,
+            mode: "markers",
+            marker: {
+                size: sample_values,
+                color: otu_ids
+            },
+            text: otu_labels
+        };
+
+        var bubble_data = [bubble_trace];
+
+        var bubble_layout = {
+            title: "Bacteria Cultures Per Sample",
+            xaxis: { title: "OTU ID" },
+            yaxis: { title: "Frequency"}
+        };
+
+        Plotly.newPlot("bubble", bubble_data, bubble_layout)
+    });
 }
 
 function optionChanged(newSample) {
-// Fetch new data each time a new sample is selected
-buildCharts(newSample);
-buildMetadata(newSample);
-}
-
-
-
-// Initialize the dashboard
-init();
+    // Fetch new data each time a new sample is selected
+    buildPlots(newSample);
+    demographics(newSample);
+};
